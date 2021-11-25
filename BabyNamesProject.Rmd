@@ -1,0 +1,147 @@
+---
+title: "R Project"
+author: "Minato"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+
+library(ggplot2)
+library(dplyr)
+library("csodata")
+library(tidyverse)
+library(readr)
+library(tidyr)
+library(gridExtra)
+```
+
+Boys names dataset from VSA50 and Girls names dataset from VSA60
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+#Getting the boys data from VSA50
+boys_actual <- cso_get_data("VSA50")
+
+boys1 <- subset(boys_actual,boys_actual$Statistic=="Boys Names in Ireland with 3 or More Occurrences")
+
+boys1[is.na(boys1)]<-0
+boys <- boys1 %>% gather(Year, Total, (colnames(boys1[-c(1,2)])))
+boys$Gender<-"Boy"
+
+boys$Total<-sapply(boys$Total,as.integer)
+boys$Year<-sapply(boys$Year,as.numeric)
+boys<- subset(boys, select = -c(Statistic))
+
+#Getting the girls data from VSA60
+
+grls_actual<- cso_get_data("VSA60")
+grls <- subset(grls_actual,grls_actual$Statistic=="Girls Names in Ireland with 3 or More Occurrences")
+grls[is.na(grls)]<-0
+girls <- grls %>% gather(Year, Total, (colnames(grls[-c(1,2)])))
+
+girls$Gender<-"Girl"
+girls$Year<-sapply(girls$Year,as.numeric)
+girls<- subset(girls, select = -c(Statistic))
+
+babynames<-rbind(boys,girls)
+
+Birth_total<-babynames %>% select(Year,Gender,Total) %>% group_by(Year) %>% summarise(Birth=sum(Total)) 
+
+#plot of the total number of births across the years
+ggplot(Birth_total,mapping = aes(x = Year, y = Birth)) +
+  geom_line(colour='#EB2F87') + ggtitle("Total Number of births across the years")
+
+# display the year and total birth which has highest number of birth's.
+print('Highest number of births')
+max_total<-max(Birth_total$Birth)
+max_details<- Birth_total %>% select(Year,Birth) %>% filter(Birth_total$Birth==max_total)
+names(max_details)[names(max_details) == "total"] <- 'Total Births'
+max_details 
+
+# display the year and total birth which has least number of birth's.
+print('Lowest number of births')
+min_total<-min(Birth_total$Birth)
+min_details<- Birth_total %>% select(Year,Birth) %>% filter(Birth_total$Birth==min_total)
+names(min_details)[names(min_details) == "total"] <- 'Total Births'
+min_details 
+
+
+```
+
+Comparison of boys and girls 
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+
+BirthDetail<-babynames %>% select(Year,Gender,Total) %>% group_by(Year,Gender)%>%summarise(totalsex=sum(Total)) 
+
+# difference in boy and girl babies and plotting the respective points
+
+ggplot(data = BirthDetail ) +
+geom_point(mapping = aes(x = Year , y = totalsex, color =Gender))+scale_color_manual(labels = c("Boy", "Girl"), values = c("#27a2ba", "#fa5a95"))+xlab("Years") + ylab("Total Birth counts")+ggtitle(label="Boy VS Girl Birth Ratio") 
+
+
+```
+
+The Top 10 Names:
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+##Top 10 names of boys
+Boytop10<-boys%>% group_by(Names)%>%summarise(total=sum(Total)) %>% arrange(-total) 
+
+boysTop<-ggplot(Boytop10[1:10,], aes(x=reorder(Names,total),y=total,fill=Names)) +
+geom_col()+coord_flip() + theme(legend.position="none") + scale_fill_hue(l=40, c=35) + ggtitle(label="Top 10 Boy Names") + xlab("Names") + ylab("Total Count")
+
+#Top 10 girls names and plotting a bargraph
+Girltop10<-girls%>% group_by(Names)%>%summarise(total=sum(Total)) %>% arrange(-total) 
+
+girlsTop<-ggplot(Girltop10[1:10,], aes(x=reorder(Names,total),y=total,fill=Names), beside=TRUE) +
+geom_col()+coord_flip() + theme(legend.position="none") + scale_fill_hue(l=40, c=35) + ggtitle(label = "Top 10 Girl Names") + xlab("Names") + ylab("Total Count")
+grid.arrange(boysTop,girlsTop,nrow=1,ncol=2,top="Top 10 Boy and Girl baby names in Ireland")
+```
+
+Analysis on the length of the names:
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+##Name Length
+
+boys_name_len<-data.frame(boys,length=str_length(boys$Names))
+
+girls_name_len<-data.frame(girls,length=str_length(girls$Names))
+
+
+# Display the bar graph to display the various length of boys name.
+boys_len<-ggplot(boys_name_len,aes(length))+geom_bar(fill="#1D67FC")+labs(x="Name Length-Boys", y="Total Count") + ggtitle("Boys Name Length Analysis")
+
+# Display the bar graph to display the various length of girls name.
+girls_len<-ggplot(girls_name_len,aes(length))+geom_bar(fill="#D30AE3")+labs(x="Name Length-Girls", y="Total Count") + ggtitle("Girls Name Length Analysis")
+
+grid.arrange(boys_len,girls_len,nrow=1,ncol=2,top="Boys and Girls baby names length Comparision")
+
+```
+
+Starting Letters Analysis:
+
+The most frequent Starting letters for the Irish Boy Baby Names are A, C, D, K, M and for Girl Baby Names are A, C, E, L, M. The rare occurrence Starting letters for both Boys and Girls are Á,Q,U, and X.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+#To Store the Starting Boy Name letter's
+boys_alpha<-str_sub(boys1$Names,1,1)
+boys_alpha_table<-as.data.frame(table(boys_alpha))
+
+#To Visualize the Starting alphabet of boy's name using ggplot funtion.
+bl<-ggplot(boys_alpha_table,aes(boys_alpha,Freq))+geom_bar(stat="identity",fill="#27a2ba")+labs(x="Starting Letter of Boys Names",y="Total Count")
+
+#To Store the Starting Girl's Name letter's
+girls_alpha<-str_sub(grls$Name,1,1)
+girls_alpha_table<-as.data.frame(table(girls_alpha))
+
+#To Visualize the Starting alphabet of Girl's name using ggplot funtion.
+gl<-ggplot(girls_alpha_table,aes(girls_alpha,Freq))+geom_bar(stat="identity",fill="#fa5a95")+labs(x="Starting Letter of Girls Names",y="Total Count")
+
+#Combing both Starting letter Graphs for each gender in a  2:1 grid.
+grid.arrange(bl,gl,ncol=1,nrow=2,top="Starting Letter of the Baby Names in Ireland ")
+
+```
