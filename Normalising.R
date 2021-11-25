@@ -40,15 +40,23 @@ for (year in 1:length(years)){
 boyscsv <-subset(d, d$Gender == "M")
 girlscsv <- subset(d, d$Gender == "F")
 
+totalsBoth <- totalsB + totalsG
 tboys <- data.frame(Year = years, All = totalsB)
 tgirls <- data.frame(Year = years, All = totalsG)
+tboth <- data.frame(Year = years, All = totalsBoth)
 
 j <- merge(boyscsv, tboys, by = "Year")
 j$Percent <- j$Total/j$All * 100
 j <- subset(j, select = -c(All))
+j <- merge(j, tboth, by = "Year")
+j$PercentBoth <- j$Total/j$All * 100
+j <- subset(j, select = -c(All))
 
 k <- merge(girlscsv, tgirls, by = "Year")
 k$Percent <- k$Total/k$All * 100
+k <- subset(k, select = -c(All))
+k <- merge(k, tboth, by = "Year")
+k$PercentBoth <- k$Total/k$All * 100
 k <- subset(k, select = -c(All))
 
 normalised <- rbind(j, k)
